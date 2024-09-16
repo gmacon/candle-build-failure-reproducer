@@ -12,7 +12,10 @@
   outputs = { self, nixpkgs, crane, flake-utils, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = nixpkgs.legacyPackages.${system};
+        pkgs = import nixpkgs {
+          inherit system;
+          config.allowUnfree = true;
+        };
 
         craneLib = crane.mkLib pkgs;
 
@@ -22,12 +25,16 @@
           src = craneLib.cleanCargoSource ./.;
           strictDeps = true;
 
+          nativeBuildInputs = [ pkgs.cudatoolkit ];
           buildInputs = [
             # Add additional build inputs here
           ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
             # Additional darwin specific inputs can be set here
             pkgs.libiconv
           ];
+          stdenv = pkgs.cudaPackages.backendStdenv;
+          CUDA_TOOLKIT_ROOT_DIR = "${pkgs.cudatoolkit}";
+          CUDA_COMPUTE_CAP = "61";
         };
 
         my-crate = craneLib.buildPackage (commonArgs // {
